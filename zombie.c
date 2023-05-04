@@ -58,7 +58,7 @@ int createConnection(int port) {
 
 int toArgv(char * commande, char *** arguments) {
 
-    
+
     return 0;
 }
 
@@ -91,25 +91,26 @@ int main() {
             break;
         }
     
-    printf("Commande reçue par le controlleur : %s\n", buf);
-    FILE * fp = popen(buf, "r");
-    if (fp == NULL) {
-        printf("Erreur lors de l'exécution de la commande\n");
-        continue;
-    }
-    while (1) {
-        n = fread(buf, 1, BUF_SIZE, fp);
-        if (n <= 0) {
-            break;
+        printf("Commande reçue par le controlleur : %s\n", buf);
+        FILE * fp = popen(buf, "r");
+        if (fp == NULL) {
+            printf("Erreur lors de l'exécution de la commande\n");
+            continue;
         }
-        send(client_sock, buf, n, 0);
+        while (1) {
+            n = fread(buf, 1, BUF_SIZE, fp);
+            if (n <= 0) {
+                break;
+            }
+            send(client_sock, buf, n, 0);
+        }
+        pclose(fp);
+
+
+        close(client_sock);
+
+        return 0;
     }
-    pclose(fp);
-
-
-close(client_sock);
-
-return 0;
 }
 
            
