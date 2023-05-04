@@ -40,7 +40,7 @@ int getPort(int minPort , int maxPort){
      * RES  : un fd d'un socket qui écoute sur le port passé en paramètre ou -1 en cas d'erreur.
 */
 int createConnection(int port){
-  
+
   int socketfd;
 	struct sockaddr_in addr;
 
@@ -59,11 +59,13 @@ int createConnection(int port){
 
   	if(bind(socketfd, (struct sockaddr *) &addr, sizeof(addr))){
   		perror("Erreurs association du socket");
+      close(socketfd);
   		return -1;
   	}
 
   	if(listen(socketfd, BACKLOG) < 0){
   		perror("Erreurs d'ecoute");
+      close(socketfd);
   		return -1;
   	}
 
