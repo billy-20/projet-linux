@@ -40,8 +40,34 @@ int getPort(int minPort , int maxPort){
      * RES  : un fd d'un socket qui écoute sur le port passé en paramètre ou -1 en cas d'erreur.
 */
 int createConnection(int port){
-    
-  return 0;
+  
+  int socketfd;
+	struct sockaddr_in addr;
+
+	socketfd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if(socketfd < 0){
+		perror("Erreurs avec la creation du socket");
+		return -1;
+	}
+
+	memset(&addr,0,sizeof(addr));
+  	addr.sin_family = AF_INET;
+  	addr.sin_port = htons(port);
+  	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  	
+
+  	if(bind(socketfd, (struct sockaddr *) &addr, sizeof(addr))){
+  		perror("Erreurs association du socket");
+  		return -1;
+  	}
+
+  	if(listen(socketfd, BACKLOG) < 0){
+  		perror("Erreurs d'ecoute");
+  		return -1;
+  	}
+
+	return socketfd;  
 }
 
 int toArgTable(char * commande, char *** table){
