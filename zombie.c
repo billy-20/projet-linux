@@ -57,6 +57,8 @@ int createConnection(int port) {
 }
 
 int toArgv(char * commande, char *** arguments) {
+
+    
     return 0;
 }
 
