@@ -1,7 +1,8 @@
 CC=gcc
 CCFLAGS=-D_DEFAULT_SOURCE -D_XOPEN_SOURCE -D_BSD_SOURCE -std=c11 -pedantic -Wvla -Wall -Werror
+ALL = zombie controller labo
 
-all: zombie controller labo
+all: $(ALL)
 
 zombie : zombie.o utils_v2.o
 	$(CC) $(CCFLAGS) -o zombie zombie.o utils_v2.o
@@ -24,10 +25,8 @@ labo.o: labo.c utils_v2.h
 utils_v2.o: utils_v2.c utils_v2.h
 	$(CC) $(CCFLAGS) -c utils_v2.c 
 
-clear: 
-	clean
+clear: clean
 
 clean : 
 	rm -f *.o
-	rm -f $(ALL)	
-
+	rm -f $(ALL)

