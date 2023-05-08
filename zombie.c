@@ -58,7 +58,7 @@ int toArgv(char * commande, char *** arguments) {
 }
 
 int main() {
-    int port = getPort(1024, 1034);
+    int port = getPort(MIN_PORT, MAX_PORT);
     if (port == -1) {
         printf("Impossible de trouver un port disponible\n");
         return 1;
@@ -87,26 +87,42 @@ int main() {
             break;
         }
            //char ** args = NULL;
-    
+
+
     printf("Commande reçue par le controlleur : %s\n", buf);
-    FILE * fp = popen(buf, "r");
-    if (fp == NULL) {
-        printf("Erreur lors de l'exécution de la commande\n");
-        continue;
-    }
-    while (1) {
-        n = fread(buf, 1, BUF_SIZE, fp);
-        if (n <= 0) {
-            break;
+
+        int pid = fork();
+        if (pid == 0) {
+            // FILS    
+            dup2(client_sock, STDOUT_FILENO); 
+
+            char *args[] = {"/bin/bash", "-c", buf, NULL};
+            execvp(args[0], args);
+            perror("execvp");
+            exit(1);
+        } else if (pid > 0) {
+            // PARENT
+            int status;
+            swaitpid(pid, &status, 0);
+            if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+                printf("OK\n");
+            } else {
+                printf("KO\n");
+            }
+        } else {
+            perror("fork");
+            return 1;
         }
-        send(client_sock, buf, n, 0);
-    }
-    pclose(fp);
-}
+
+    }   
+    
+
+        
 
 close(client_sock);
 
 return 0;
 }
+
 
            

