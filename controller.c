@@ -7,111 +7,151 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define BUF_SIZE 1024
 
 #include "utils_v2.h"
 #include "messages.h"
+
+
 /**
- * PRE  : ip, j'adresse ip.
- *     port, le port désiré.
+ * PRE  : zombies     : a table of all zombies to send the command to.
+ *	  zombieCount : the count of zombies in the table.
+ * POST : The user will be asked for a command, which will be sent to all the zombies given in the arguments.
+ * RES  : nothing.
+ */
+void sendCommands(int * zombies, int zombieCount){
+	char * command = malloc(BUFF_SZ * sizeof(char));
+	write(1, "\n> ", 3 * sizeof(char));
+	read(0, command, BUFF_SZ)
+	for(int i = 0;i < zombieCount;i++){
+		write(zombies[i], command, strlen(command));
+	}
+	free(command);
+}
+
+/**
+ * PRE  : zombies     : a table of all zombies to send the command to.
+ *	  zombieCount : the count of zombies in the table.
+ * POST : this command will listen to all zombies given in the arguments, and display their answers to the screen.
+ * RES  : nothing.
+ */
+void receiveAnswers(int * zombies, int zombieCount){
+
+}
+
+
+/**
+ * PRE  : ip    :  l'adresse ip.
+ *        port  :  le port désiré.
  * POST : une nouvelle connection est créée. Celle-ci communique avec l'adresse ip fournie, sur le port fourni.
  * RES  : un fd d'un socket sur l'adresse et le port passé en paramètre ou -1 en cas d'erreur.
  */
 int createConnection(char * ip, int port) {
-    int sock;
-    //struct sockaddr_in addr;
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        perror("Erreur lors de la création du socket");
-        return -1;
-    }
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) {
+		perror("Erreur lors de la création du socket");
+		return -1;�
+	}
     
-     struct sockaddr_in addr = {0};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
+	struct sockaddr_in addr = {0};
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
     
-    connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+	connect(sock, (struct sockaddr*)&addr, sizeof(addr));
         
-    return sock;
+	return sock;
 }
+
+
+
 
 int main(int argc, char **argv) {
-   if (argc < 2) {
-        printf("ip -> missing");
-        return 1;
-    }
+	if (argc < 2) {
+   		printf("\n\tUsage : controller [ip address] * (1..n)\n\n");
+		return 1;
+	}
+	
+	char ** ips = (char **) malloc((argc - 1) * sizeof(char *));
 
-    char **ips = &argv[1]; 
+	for(int i = 1;i < argc;i++){
+		ips[i - 1] = (char *) malloc(strlen(argv[i]) * sizeof(char));
+		strcpy(ips[i - 1], argv[i]);
+	}
 
-    int sock = -1;
-    int connectedPort = -1;
 
-    for (int i = 0; ips[i] != NULL; i++) {
-     for (int port = MIN_PORT; port <= MAX_PORT; port++) {
-        sock = createConnection(ips[i], port);
+	int sock = -1;
+	int connectedPort = -1;
 
-        if (sock < 0) {
-            continue; 
-        }
+	for (int i = 0; ips[i] != NULL; i++) {
+		for (int port = MIN_PORT; port <= MAX_PORT; port++) {
+			sock = createConnection(ips[i], port);
+
+			if (sock < 0) {
+				continue; 
+			}
         
-        struct sockaddr_in addr;
-        socklen_t addr_len = sizeof(addr);
-        getpeername(sock, (struct sockaddr *)&addr, &addr_len);
-        connectedPort = ntohs(addr.sin_port);
+			struct sockaddr_in addr;
+			socklen_t addr_len = sizeof(addr);
+			getpeername(sock, (struct sockaddr *)&addr, &addr_len);
+			connectedPort = ntohs(addr.sin_port);
 
-        if (connectedPort != port) {
-            close(sock);
-            continue; 
-        }
+			if (connectedPort != port) {
+				close(sock);
+				continue; 
+			}
 
-        printf("Connexion établie avec %s:%d\n", ips[i], port);
+			printf("Connexion établie avec %s:%d\n", ips[i], port);
 
-        break;
-    }
+			break;
+ 		}
 
-    if (sock >= 0) {
-        break; 
-    }
-}
+		if (sock >= 0) {
+			break; 
+		}
+	}
+
+	// printf("port du zombie = %d ",connectedPort);
 
 
-    //printf("port du zombie = %d ",connectedPort);
+	/*
 
+	Il faut 2 processus un de lecture et un d'ecriture, separer le write et read en 
+	2 processus.
 
-/*
+	Utilisation des poll (asynchrone).
 
-Faut 2 processus un de lecture et un d'ecriture, separer le write et read en 
-2 processus.
+	*/
+	char buffer[BUF_SIZE];
+	while (1) {
+		printf("Entrez votre commande a envoyer aux zombies: ");
+		fgets(buffer, BUF_SIZE, stdin);
 
-Utilisation des poll (asynchrone).
+		if (strcmp(buffer, "exit\n") == 0) {
+			break;
+		}
 
-*/
-   char buffer[BUF_SIZE];
-    while (1) {
-        printf("Entrez votre commande a envoyer aux zombies: ");
-        fgets(buffer, BUF_SIZE, stdin);
+		ssize_t message_envoye = write(sock, buffer, strlen(buffer));
+		if (message_envoye < 0) {
+ 			printf("error message_envoye");
+			break;
+		}
 
-        if (strcmp(buffer, "exit\n") == 0) {
-            break;
-        }
+		ssize_t message_recu = read(sock, buffer, BUF_SIZE);
+		if (message_recu < 0) {
+			printf("error message_recu");
+			break;
+		}
 
-        ssize_t message_envoye = write(sock, buffer, strlen(buffer));
-        if (message_envoye < 0) {
-            printf("error message_envoye");
-            break;
-        }
+		buffer[message_recu] = '\0';
 
-        ssize_t message_recu = read(sock, buffer, BUF_SIZE);
-        if (message_recu < 0) {
-            printf("error message_recu");
-            break;
-        }
+		printf("Reponse de la commande executé =   \n %s",buffer);
+	}
 
-        buffer[message_recu] = '\0';
+	close(sock);
 
-        printf("Reponse de la commande executé =   \n %s",buffer);
-    }
+	for(int i = 0;i < argc - 1;i++){
+		free(ips[i]);
+	}
+	free(ips);
 
-    close(sock);
-    return 0;
+	return 0;
 }

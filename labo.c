@@ -11,7 +11,7 @@
 #include "messages.h"
 #include "utils_v2.h"
 
-void arreter_zombie(pid_t* zombies, int numZombies) {
+void arreter_zombie(pid_t * zombies, int numZombies) {
     int i;
     for (i = 0; i < numZombies; i++) {
         kill(zombies[i], SIGTERM);
