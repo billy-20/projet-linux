@@ -1,12 +1,16 @@
 #ifndef _MESSAGES_H_
 #define _MESSAGES_H_
-#define MIN_PORT 40000
-#define MAX_PORT 42069
-#define TAILLE_COMMANDE 1024
+
+#define MIN_PORT 1024
+#define MAX_PORT 1034
+#define TAILLE_COMMANDE 1020
 #define TAILLE_BUFFER 1024
 #define BACKLOG 10
+#define BUF_SIZE 1024
+#define BUFF_SZ 1024
 
 typedef enum {KILL, ID, EXEC} TypeCommande;
+
 typedef struct {
 	TypeCommande type;
 	char commande[TAILLE_COMMANDE];
