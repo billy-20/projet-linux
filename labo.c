@@ -37,7 +37,7 @@ int main() {
         } else if (pid == 0) {
             char portArg[10];
             sprintf(portArg,"%d", ports_dispo[i]);
-            execl("./zombie", "programme_innofensif", NULL);
+            execl("./zombie", "zombie", NULL);
 
             printf("Erreur lors de l'exécution du zombie");
             exit(1);

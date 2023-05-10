@@ -7,12 +7,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <poll.h>
+#include <sys/wait.h>
 
 #define BUF_SIZE 1024
-#define POLL_TIMEOUT 1000
 
 #include "utils_v2.h"
 #include "messages.h"
+
 
 int createConnection(char *ip, int port) {
     int sock;
@@ -31,68 +32,100 @@ int createConnection(char *ip, int port) {
     return sock;
 }
 
-void envoyer_commandes(int sock) {
+void envoyer_commandes(int *socks, int num_zombies) {
     char buffer[BUF_SIZE];
 
     while (1) {
-        printf("Entrez votre commande a envoyer aux zombies: \n ");
-        fgets(buffer, BUF_SIZE, stdin);
-
-        ssize_t message_envoye = write(sock, buffer, strlen(buffer));
-        if (message_envoye < 0) {
-            printf("Error message_envoye\n");
-            break;
+        printf("Entrez votre commande à envoyer aux zombies:\n");
+        if (fgets(buffer, BUF_SIZE, stdin) == NULL) {
+            
+            printf("Arrêt du programme\n");
+            for (int i = 0; i < num_zombies; i++) {
+                if (socks[i] >= 0) {
+                    close(socks[i]);
+                }
+            }
+            free(socks);
+            exit(0);
         }
-    }
-}
 
-void recevoir_commandes(int sock) {
-    struct pollfd fds[1];
-    fds[0].fd = sock;
-    fds[0].events = POLLIN;
+        for (int i = 0; i < num_zombies; i++) {
+            int sock = socks[i];
 
-    char buffer[BUF_SIZE];
-
-    while (1) {
-        int res = poll(fds, 1, POLL_TIMEOUT);
-
-        if (res < 0) {
-            printf("error poll\n");
-            break;
-        } else if (res > 0) {
-            if (fds[0].revents & POLLIN) {
-                ssize_t message_recu = read(sock, buffer, BUF_SIZE);
-                if (message_recu < 0) {
-                    printf("Error message_recu\n");
+            if (sock >= 0) {
+                ssize_t message_envoye = write(sock, buffer, strlen(buffer));
+                if (message_envoye < 0) {
+                    printf("Erreur lors de l'envoi de la commande\n");
                     break;
                 }
-
-                buffer[message_recu] = '\0';
-                printf("Réponse de la commande exécutée  = \n%s", buffer);
             }
         }
     }
 }
 
+void recevoir_commandes(int *socks, int num_zombies) {
+    struct pollfd *fds = malloc(num_zombies * sizeof(struct pollfd));
+
+    for (int i = 0; i < num_zombies; i++) {
+        fds[i].fd = socks[i];
+        fds[i].events = POLLIN;
+    }
+
+    char buffer[BUF_SIZE];
+
+    while (1) {
+        int res = poll(fds, num_zombies, 0);
+
+        if (res < 0) {
+            printf("Erreur lors de la réception des réponses\n");
+            break;
+        } else if (res > 0) {
+            for (int i = 0; i < num_zombies; i++) {
+                if (fds[i].revents & POLLIN) {
+                    int sock = fds[i].fd;
+
+                    ssize_t message_recu = read(sock, buffer, BUF_SIZE);
+                    if (message_recu < 0) {
+                        printf("Erreur lors de la réception du message\n");
+                        break;
+                    }
+
+                    buffer[message_recu] = '\0';
+                    printf("Réponse du zombie %d:\n%s\n", i+1, buffer);
+                }
+            }
+        }
+    }
+
+    free(fds);
+}
+
+
+
 int main(int argc, char **argv) {
     if (argc < 2) {
-        printf("ip -> manquant\n");
+        printf("Adresse IP(s) manquante(s)\n");
         return 1;
     }
 
     char **ips = &argv[1];
+    int num_zombies = argc - 1;
 
-    int sock = -1;
+    int *socks = malloc(num_zombies * sizeof(int));
+
+
+
+    for (int i = 0; i < num_zombies; i++) {
+        socks[i] = -1;
+    }
+
+    
+    int nbrConnexion = 0;
     int connectedPort = -1;
 
-/*
-    
-    fixer le faite de se connecter 2 fois au zombie
-*/
-    for (int i = 0; ips[i] != NULL; i++) {
+    for (int i = 0; i < num_zombies; i++) {
         for (int port = MIN_PORT; port <= MAX_PORT; port++) {
-            sock = createConnection(ips[i], port);
-
+            int sock = createConnection(ips[i], port);
 
             if (sock < 0) {
                 continue;
@@ -107,46 +140,52 @@ int main(int argc, char **argv) {
                 close(sock);
                 continue;
             }
+                printf("Connexion établie avec %s:%d\n", ips[i], port);
             
-            printf("Connexion établie avec %s:%d\n", ips[i], port);
+            socks[nbrConnexion] = sock;
+            nbrConnexion++;
 
-            break;
+            if (nbrConnexion == 2 ) {
+                     break;
+                 }
         }
-
-        if (sock >= 0) {
+        
+        if (nbrConnexion == 2 ) {
             break;
         }
     }
-          
-
+    
+    
     pid_t send_pid = fork();
 
     if (send_pid == 0) {
         // FILS
-        envoyer_commandes(sock);
+        envoyer_commandes(socks, nbrConnexion);
         exit(0);
     } else if (send_pid > 0) {
         // PARENT
-
-            recevoir_commandes(sock);
-            
-            int sender_status;
-            swaitpid(send_pid, &sender_status, 0);
-
-            if (WIFEXITED(sender_status) ) {
-                printf("error dans l'envoi ou le recevoir_commandes\n");
-            } else {
-                printf("error processus\n");
-            }
-
-            close(sock);
-            return 0;
+        recevoir_commandes(socks, nbrConnexion);
         
+        int sender_status;
+        waitpid(send_pid, &sender_status, 0);
+
+        if (WIFEXITED(sender_status)) {
+            printf("Erreur dans l'envoi ou la réception des commandes\n");
+        } else {
+            printf("Erreur du processus\n");
+        }
+
+        
+        for (int i = 0; i < nbrConnexion; i++) {
+            close(socks[i]);
+        }
+
+        free(socks);
+        return 0;
     } else {
         perror("fork");
         return 1;
     }
-    return 0;
 }
 
-    
+            
