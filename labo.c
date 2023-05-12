@@ -25,7 +25,6 @@ void arreter_zombie(pid_t * zombies, int numZombies) {
 int main() {
 	pid_t zombies[NUM_ZOMBIES];
 
-	int ports_dispo[] = {1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032, 1033, 1034};
 
 	int i;
 	for (i = 0; i < NUM_ZOMBIES; i++) {
@@ -33,13 +32,10 @@ int main() {
 		if (pid == -1) {
 			printf("error fils");
 			arreter_zombie(zombies, i);
+			printf("Erreur lors de l'exécution du zombie");
 			return 1;
 		} else if (pid == 0) {
-			char portArg[10];
-			sprintf(portArg,"%d", ports_dispo[i]);
-			execl("./zombie", "programme_innofensif", NULL);
-
-			printf("Erreur lors de l'exécution du zombie");
+			execl("./zombie", PRGM_NAME, NULL);
 			exit(1);
 		} else {
 			zombies[i] = pid;

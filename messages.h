@@ -8,12 +8,6 @@
 #define BACKLOG 10
 #define BUF_SIZE 1024
 #define BUFF_SZ 1024
-
-typedef enum {KILL, ID, EXEC} TypeCommande;
-
-typedef struct {
-	TypeCommande type;
-	char commande[TAILLE_COMMANDE];
-} Commande;
+#define PRGM_NAME "programme_innofensif"
 
 #endif

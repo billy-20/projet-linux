@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -60,9 +61,11 @@ void sendCommands(int * zombies, int zombieCount){
  */
 void receiveAnswers(int * zombies, int zombieCount){
 	struct pollfd * zombie_fds = (struct pollfd *) malloc(zombieCount * sizeof(struct pollfd));
+	bool * acceptZombie = (bool *) malloc(zombieCount * sizeof(bool)); 
 	for(int i = 0;i < zombieCount;i++){
 		zombie_fds[i].fd = zombies[i];
 		zombie_fds[i].events = POLLIN;
+		acceptZombie[i] = true;
 	}
 
 	char buffer[BUFF_SZ] = {0};
@@ -75,20 +78,32 @@ void receiveAnswers(int * zombies, int zombieCount){
 		} 
 		if(poll_res > 0){
 			for(int i = 0;i < zombieCount;i++){
-				if(zombie_fds[i].revents & POLLIN){
+				if(zombie_fds[i].revents & POLLIN && acceptZombie[i]){
+					bool pasFini = false;
 					int bytesRead = 0;
 					printf("\n----------\n\tlistening to file descriptor : %d \n\n", zombie_fds[i].fd);
 					do{
 						bytesRead = read(zombie_fds[i].fd, buffer, BUFF_SZ);
+						printf("nombres lus : %d\n", bytesRead);
 						buffer[bytesRead] = '\0';
 						write(1, buffer, strlen(buffer));
-					}while(bytesRead > 0);
+						if(bytesRead == BUFF_SZ){
+							pasFini = true;
+						}else{
+							pasFini = false;
+						}
+					}while(bytesRead > 0 && pasFini);
+					if(bytesRead == 0){
+						acceptZombie[i] = false;
+					}
 					write(1, "\n> ", 3 * sizeof(char));
 				}
 			}
 		}
-	}
+		
 
+	}
+	free(acceptZombie);
 	free(zombie_fds);
 }
 
@@ -102,13 +117,14 @@ void receiveAnswers(int * zombies, int zombieCount){
 int createConnection(char * ip, int port) {
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		perror("Erreur lors de la crÃ©ation du socket");
+		perror("Erreur lors de la création du socket");
 		return -1;
 	}
     
 	struct sockaddr_in addr = {0};
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
+	inet_aton(ip, &addr.sin_addr);
     
 	connect(sock, (struct sockaddr*)&addr, sizeof(addr));
         
@@ -119,8 +135,9 @@ int createConnection(char * ip, int port) {
 
 
 int main(int argc, char **argv) {
+	write(1, "\n", sizeof(char));
 	if (argc < 2) {
-   		printf("\n\tUsage : controller [ip address] * (1..n)\n\n");
+   		printf("\tUsage : controller [ip address] * (1..n)\n\n");
 		return 1;
 	}
 	
@@ -165,9 +182,8 @@ int main(int argc, char **argv) {
 				zombies[zombieCount - 1] = sock;
 			}
 
-			printf("Connexion Ã©tablie avec %s:%d\n", ips[i], port);
+			printf("Connexion établie avec %s:%d\n", ips[i], port);
 
-			break;
  		}
 
 		if (sock >= 0) {
@@ -177,10 +193,22 @@ int main(int argc, char **argv) {
 
 
 	pid_t pid = fork();
+	if(pid < 0){
+		free(zombies);
+
+		for(int i = 0;i < argc - 1;i++){
+			free(ips[i]);
+		}
+		free(ips);
+		printf("Erreur lors du fork.\n");
+		return 1; 
+	}
 	if(pid){
 		sendCommands(zombies, zombieCount);
+		waitpid(pid, NULL, 0);
 	}else{
 		receiveAnswers(zombies, zombieCount);
+		return 0;
 	}
 
 
