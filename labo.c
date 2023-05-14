@@ -38,7 +38,9 @@ void arreter_zombie(pid_t *zombies, int numZombies) {
 
 
 /*
-* Gerer le CTRL-D dans le labo
+* Arrete les zombies et envoi le signal SIGINT 
+*
+* @param sig le signal recu
 */
 void handle_controleD(int sig) {
     arreter_zombie(zombies, NUM_ZOMBIES);
