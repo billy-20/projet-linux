@@ -18,6 +18,7 @@
 
 #include "messages.h"
 #include "utils_v2.h"
+#include "controller.h"
 
 pid_t send_pid;
 
@@ -35,11 +36,7 @@ int controleC = 0;
 
 */
 
-/**
- *PRE : ip, j'adresse ip.port, le port désiré.
- *POST : une nouvelle connection est créée. Celle-ci communique avec l'adresse ip fournie, sur le port fourni.
- *RES : un fd d'un socket sur l'adresse et le port passé en paramètre ou -1 en cas d'erreur.
- */
+
 
 int createConnection(char *ip, int port)
 {
@@ -61,18 +58,12 @@ int createConnection(char *ip, int port)
   return sock;
 }
 
-/**
- *PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés, num_zombies: Nombre de zombies dans le tableau,
- *user_id: ID utilisateur (uid_t) à envoyer aux zombies.
- *
- *POST : Envoie l'ID utilisateur aux zombies connectés. Attend les commandes de l'utilisateur et les envoie aux zombies connectés.
- */
-
 void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
 {
   char buffer[BUF_SIZE];
   char uid_message[BUF_SIZE];
 
+  // c'est ici qu'on cree le message ID a envoyer aux zombies
   snprintf(uid_message, BUF_SIZE, "UID %d\n", user_id);
   for (int i = 0; i < num_zombies; i++)
   {
@@ -80,6 +71,7 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
 
     if (sock >= 0)
     {
+      //Envoi du message d'ID sur le socket
       ssize_t message_envoye = swrite(sock, uid_message, strlen(uid_message));
       if (message_envoye < 0)
       {
@@ -89,6 +81,7 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
     }
   }
 
+
   while (!controleC)
   {
     printf("Entrez votre commande à envoyer aus zombie(s):\n");
@@ -96,16 +89,18 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
     {
       printf("Arrêt du programme\n");
       controleC = 1;
-      kill(send_pid, SIGINT);
+      skill(send_pid, SIGINT);
       break;
     }
 
+    // on envoi la commande a tout les zombies
     for (int i = 0; i < num_zombies; i++)
     {
       int sock = socks[i];
 
       if (sock >= 0)
       {
+          // Envoyer la commande sur le socket
         ssize_t message_envoye = swrite(sock, buffer, strlen(buffer));
         if (message_envoye < 0)
         {
@@ -117,17 +112,12 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
   }
 }
 
-/**
- *PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés,num_zombies: Nombre de zombies dans le tableau (int).
- *
- *POST : Ecoute les messages provenant des zombies connectés, Affiche les messages reçus des zombies
- *
- */
 
 void recevoir_commandes(int *socks, int num_zombies)
 {
   struct pollfd *fds = malloc(num_zombies* sizeof(struct pollfd));
 
+  // initialisation pollfd avec les sockets des zombies
   for (int i = 0; i < num_zombies; i++)
   {
     fds[i].fd = socks[i];
@@ -138,7 +128,7 @@ void recevoir_commandes(int *socks, int num_zombies)
 
   while (!controleC)
   {
-    int res = poll(fds, num_zombies, 0);
+    int res = spoll(fds, num_zombies, 0);
 
     if (res < 0)
     {
@@ -153,6 +143,7 @@ void recevoir_commandes(int *socks, int num_zombies)
         {
           int sock = fds[i].fd;
 
+          // Lire le message reçu sur le socket
           ssize_t message_recu = sread(sock, buffer, BUF_SIZE);
 
           if (message_recu < 0)
@@ -163,6 +154,7 @@ void recevoir_commandes(int *socks, int num_zombies)
 
           buffer[message_recu] = '\0';
 
+          // Verification du message recu pour fermer le zombie
           if (strcmp(buffer, "FERMER_ZOMBIE\n") == 0)
           {
             if (num_zombies >= 2)
@@ -174,7 +166,8 @@ void recevoir_commandes(int *socks, int num_zombies)
               printf("Le zombies s'est arrêté. Arrêt du programme.\n");
             }
 
-            kill(send_pid, SIGINT);
+            // on arrete l'envoi des commandes avec SIGINT
+            skill(send_pid, SIGINT);
             break;
           }
           else
@@ -185,7 +178,7 @@ void recevoir_commandes(int *socks, int num_zombies)
       }
     }
   }
-
+  // on libere l'espace alloue 
   free(fds);
 }
 
@@ -197,10 +190,14 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  // l'id de l'utilisateur premier argument
   uid_t user_id = atoi(argv[1]);
+
+  // adresse IP 2eme argument
   char **ips = &argv[2];
   int num_zombies = argc - 2;
 
+  // alouer de l'espace pour les sockets des zombies
   int *socks = malloc(num_zombies* sizeof(int));
 
   for (int i = 0; i < num_zombies; i++)
@@ -210,6 +207,8 @@ int main(int argc, char **argv)
 
   int nbrConnexion = 0;
   int connectedPort = -1;
+
+  // Connexion aux zombies
   for (int i = 0; i < num_zombies; i++)
   {
     for (int port = MIN_PORT; port <= MAX_PORT; port++)
@@ -221,6 +220,7 @@ int main(int argc, char **argv)
         continue;
       }
 
+      // on verifie si la connexion attendu est correcte
       struct sockaddr_in addr;
       socklen_t addr_len = sizeof(addr);
       getpeername(sock, (struct sockaddr *) &addr, &addr_len);
@@ -232,6 +232,7 @@ int main(int argc, char **argv)
         continue;
       }
 
+      // on ajoute le socket a la liste de connexions
       socks[nbrConnexion] = sock;
       nbrConnexion++;
       printf("connecting to  %s:%d OK \n", ips[i], port);
@@ -255,7 +256,9 @@ int main(int argc, char **argv)
 
   printf("nombre de conexions : %d \n", nbrConnexion);
   printf("send uid %d to zombie \n", user_id);
-  pid_t send_pid = fork();
+
+
+  pid_t send_pid = sfork();
 
   if (send_pid == 0)
   {
@@ -270,7 +273,7 @@ int main(int argc, char **argv)
     // PARENT
     recevoir_commandes(socks, nbrConnexion);
     int sender_status;
-    waitpid(send_pid, &sender_status, 0);
+    swaitpid(send_pid, &sender_status, 0);
 
     if (WIFEXITED(sender_status))
     {
@@ -281,6 +284,7 @@ int main(int argc, char **argv)
       printf("Erreur du processus\n");
     }
 
+    //ferme les sockets
     for (int i = 0; i < nbrConnexion; i++)
     {
       close(socks[i]);
