@@ -9,9 +9,6 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "utils_v2.h"
-#include "messages.h"
-#define BUF_SIZE 1024
 
 int client_sock;
 #include "messages.h"

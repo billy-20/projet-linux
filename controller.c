@@ -15,14 +15,14 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "utils_v2.h"
+
 #include "messages.h"
+#include "utils_v2.h"
 
 pid_t send_pid;
 
 int controleC = 0;
-#include "messages.h"
-#include "utils_v2.h"
+
 
 /*void handle_controleD(int sig){
     printf("Arrêt du programme controller lancé par le labo\n");
