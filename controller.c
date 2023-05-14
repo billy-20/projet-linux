@@ -168,7 +168,7 @@ void recevoir_commandes(int *socks, int num_zombies)
 
           buffer[message_recu] = '\0';
 
-          if (strcmp(buffer, "FERMER_ZOMBIE\n") == 0 || strcmp(buffer, "FERMER_LABO") == 0)
+          if (strcmp(buffer, "FERMER_ZOMBIE\n") == 0 )
           {
             if (num_zombies >= 2)
             {
