@@ -16,6 +16,15 @@ pid_t controller_pid;
 #include "messages.h"
 #include "utils_v2.h"
 
+
+/**
+ *
+ * PRE : zombies: Pointeur vers un tableau de PIDs (pid_t) représentant les processus zombie,
+ *  numZombies: Nombre de zombies dans le tableau (int).
+ *
+ * POST : Envoie un signal SIGTERM à chaque processus zombie dans le tableau.
+ * 
+ */
 void arreter_zombie(pid_t *zombies, int numZombies) {
     int i;
     for (i = 0; i < numZombies; i++) {
@@ -27,6 +36,10 @@ void arreter_zombie(pid_t *zombies, int numZombies) {
     }
 }
 
+
+/*
+* Gerer le CTRL-D dans le labo
+*/
 void handle_controleD(int sig) {
     arreter_zombie(zombies, NUM_ZOMBIES);
     if (controller_pid > 0) {
