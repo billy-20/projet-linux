@@ -1,9 +1,8 @@
 /**
- * El Haddadi Haddouchene Bilal
- * Bekkari Ibrahim
- * 
-*/
-
+ *El Haddadi Haddouchene Bilal
+ *Bekkari Ibrahim
+ *
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,30 +18,28 @@
 #include "utils_v2.h"
 #include "messages.h"
 
-
 pid_t send_pid;
 
 int controleC = 0;
-
 #include "messages.h"
 #include "utils_v2.h"
-
 
 /*void handle_controleD(int sig){
     printf("Arrêt du programme controller lancé par le labo\n");
     if (send_pid > 0) {
         kill(send_pid, SIGINT);
     }
+
     exit(0);
 }
-*/
 
+*/
 
 /**
-* PRE : ip, j'adresse ip.port, le port désiré.
-* POST : une nouvelle connection est créée. Celle-ci communique avec l'adresse ip fournie, sur le port fourni.
-* RES : un fd d'un socket sur l'adresse et le port passé en paramètre ou -1 en cas d'erreur.
-*/
+ *PRE : ip, j'adresse ip.port, le port désiré.
+ *POST : une nouvelle connection est créée. Celle-ci communique avec l'adresse ip fournie, sur le port fourni.
+ *RES : un fd d'un socket sur l'adresse et le port passé en paramètre ou -1 en cas d'erreur.
+ */
 
 int createConnection(char *ip, int port)
 {
@@ -65,10 +62,10 @@ int createConnection(char *ip, int port)
 }
 
 /**
- * PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés, num_zombies: Nombre de zombies dans le tableau,
- *  user_id: ID utilisateur (uid_t) à envoyer aux zombies.
+ *PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés, num_zombies: Nombre de zombies dans le tableau,
+ *user_id: ID utilisateur (uid_t) à envoyer aux zombies.
  *
- * POST : Envoie l'ID utilisateur aux zombies connectés. Attend les commandes de l'utilisateur et les envoie aux zombies connectés.
+ *POST : Envoie l'ID utilisateur aux zombies connectés. Attend les commandes de l'utilisateur et les envoie aux zombies connectés.
  */
 
 void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
@@ -92,14 +89,13 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
     }
   }
 
-
   while (!controleC)
   {
     printf("Entrez votre commande à envoyer aus zombie(s):\n");
     if (fgets(buffer, BUF_SIZE, stdin) == NULL)
     {
       printf("Arrêt du programme\n");
-      controleC= 1;
+      controleC = 1;
       kill(send_pid, SIGINT);
       break;
     }
@@ -121,11 +117,10 @@ void envoyer_commandes(int *socks, int num_zombies, uid_t user_id)
   }
 }
 
-
 /**
- * PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés,num_zombies: Nombre de zombies dans le tableau (int).
+ *PRE : socks: Pointeur vers un tableau d'entiers représentant les sockets des zombies connectés,num_zombies: Nombre de zombies dans le tableau (int).
  *
- * POST : Ecoute les messages provenant des zombies connectés, Affiche les messages reçus des zombies
+ *POST : Ecoute les messages provenant des zombies connectés, Affiche les messages reçus des zombies
  *
  */
 
@@ -168,7 +163,7 @@ void recevoir_commandes(int *socks, int num_zombies)
 
           buffer[message_recu] = '\0';
 
-          if (strcmp(buffer, "FERMER_ZOMBIE\n") == 0 )
+          if (strcmp(buffer, "FERMER_ZOMBIE\n") == 0)
           {
             if (num_zombies >= 2)
             {
@@ -179,7 +174,7 @@ void recevoir_commandes(int *socks, int num_zombies)
               printf("Le zombies s'est arrêté. Arrêt du programme.\n");
             }
 
-            kill(send_pid, SIGINT); 
+            kill(send_pid, SIGINT);
             break;
           }
           else
@@ -193,8 +188,6 @@ void recevoir_commandes(int *socks, int num_zombies)
 
   free(fds);
 }
-
-
 
 int main(int argc, char **argv)
 {
@@ -255,15 +248,14 @@ int main(int argc, char **argv)
     }
   }
 
-  /* le CTRL-D du labo (ne marche pas)
+  /*le CTRL-D du labo (ne marche pas)
   signal(SIGINT, handle_controleD);
   signal(SIGTSTP, handle_controleD);
   */
 
   printf("nombre de conexions : %d \n", nbrConnexion);
   printf("send uid %d to zombie \n", user_id);
-   pid_t send_pid = fork();
-
+  pid_t send_pid = fork();
 
   if (send_pid == 0)
   {
