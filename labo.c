@@ -5,72 +5,69 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#define NUM_ZOMBIES 2
 #include "messages.h"
 #include "utils_v2.h"
 
-int client_sock;
+#define NUM_ZOMBIES 2
 
-void handle_sigquit(int sig)
-{
-    char *shutdown_message = "LABO_SHUTDOWN\n";
-    write(client_sock, shutdown_message, strlen(shutdown_message));
-    close(client_sock);
-    exit(0);
-}
+pid_t zombies[NUM_ZOMBIES];
+pid_t controller_pid;
 
-void arreter_zombie(pid_t *zombies, int numZombies)
-{
+#include "messages.h"
+#include "utils_v2.h"
+
+void arreter_zombie(pid_t *zombies, int numZombies) {
     int i;
-    for (i = 0; i < numZombies; i++)
-    {
+    for (i = 0; i < numZombies; i++) {
         kill(zombies[i], SIGTERM);
     }
 
-    for (i = 0; i < numZombies; i++)
-    {
+    for (i = 0; i < numZombies; i++) {
         waitpid(zombies[i], NULL, 0);
     }
 }
 
-int main()
-{
-    struct sigaction sa_quit;
+void handle_controleD(int sig) {
+    arreter_zombie(zombies, NUM_ZOMBIES);
+    if (controller_pid > 0) {
+        kill(controller_pid, SIGINT);
+    }
 
-    sa_quit.sa_handler = handle_sigquit;
-    sigemptyset(&sa_quit.sa_mask);
-    sigaction(SIGQUIT, &sa_quit, NULL);
+    exit(0);
+}
 
-    pid_t zombies[NUM_ZOMBIES];
+int main() {
+    char buffer[BUF_SIZE];
+    controller_pid = -1;
 
-    int ports_dispo[] = { 1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032, 1033, 1034 };
-
-    for (int i = 0; i < NUM_ZOMBIES; i++)
-    {
+    for (int i = 0; i < NUM_ZOMBIES; i++) {
         pid_t pid = fork();
-        if (pid == -1)
-        {
-            printf("error fils");
+        if (pid == -1) {
+            printf("Erreur dans le fork pour le zombie\n");
             arreter_zombie(zombies, i);
             return 1;
-        }
-        else if (pid == 0)
-        {
-            char portArg[10];
-            sprintf(portArg, "%d", ports_dispo[i]);
+        } else if (pid == 0) {
             execl("./zombie", "zombie", NULL);
-
-            printf("Erreur dans le zombie");
+            printf("Erreur lors de l'exécution du zombie\n");
             exit(1);
-        }
-        else
-        {
+        } else {
             zombies[i] = pid;
         }
     }
 
-    for (int i = 0; i < NUM_ZOMBIES; i++)
-    {
+    signal(SIGINT, handle_controleD);
+
+    controller_pid = getpid();
+
+    while (1) {
+        if (fgets(buffer, BUF_SIZE, stdin) == NULL || feof(stdin)) {
+            printf("CTRL-D, fin du labo\n");
+            handle_controleD(SIGINT);
+            break;
+        }
+    }
+
+    for (int i = 0; i < NUM_ZOMBIES; i++) {
         int status;
         waitpid(zombies[i], &status, 0);
     }

