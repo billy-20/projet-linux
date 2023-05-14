@@ -5,14 +5,13 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+
 #include "messages.h"
 #include "utils_v2.h"
-#define NUM_ZOMBIES 2
 
 pid_t zombies[NUM_ZOMBIES];
 pid_t controller_pid;
-#include "messages.h"
-#include "utils_v2.h"
 
 /**
  *
